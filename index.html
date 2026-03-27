@@ -1,67 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Secure Cloud Camera</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>TEST</title>
 </head>
 
-<body style="background:black;color:white;text-align:center;font-family:Arial">
+<body style="background:black;color:white;text-align:center">
 
-<h1>Secure Cloud Camera</h1>
+<h1>TEST BUTTON</h1>
 
-<input id="email" placeholder="Email"><br><br>
-<input id="password" type="password" placeholder="Password"><br><br>
-
-<button onclick="signup()">Sign Up</button>
-<button onclick="login()">Login</button>
+<button onclick="test()">Click Me</button>
 
 <p id="msg"></p>
 
 <script>
-const supabase = window.supabase.createClient(
-  "https://czqxzvbggafuwedycdfm.supabase.co",
-  "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl"
-);
-
-// SIGNUP
-async function signup() {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password
-  });
-
-  if (error) {
-    document.getElementById("msg").innerText = "❌ " + error.message;
-  } else {
-    document.getElementById("msg").innerText = "✅ Signup success";
-    console.log(data);
-  }
-}
-
-// LOGIN
-async function login() {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-
-  document.getElementById("msg").innerText = "⏳ Logging in...";
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
-
-  console.log("LOGIN RESULT:", data, error);
-
-  if (error) {
-    document.getElementById("msg").innerText = "❌ " + error.message;
-  } else {
-    document.getElementById("msg").innerText = "✅ LOGIN SUCCESS";
-
-    alert("Login worked!");
-  }
+function test() {
+  document.getElementById("msg").innerText = "JS WORKING ✅";
 }
 </script>
 
