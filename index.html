@@ -3,6 +3,10 @@
 <head>
   <title>Secure Cloud Camera</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
   <style>
     body {
       font-family: Arial;
@@ -10,12 +14,20 @@
       color: #fff;
       text-align: center;
     }
+
     input, button {
       padding: 10px;
       margin: 5px;
       border-radius: 5px;
       border: none;
     }
+
+    button {
+      background: #00ff99;
+      color: black;
+      font-weight: bold;
+    }
+
     video {
       width: 90%;
       margin-top: 10px;
@@ -27,14 +39,17 @@
 
 <h2>Secure Cloud Camera</h2>
 
+<!-- LOGIN -->
 <div id="auth">
   <input id="email" placeholder="Email"><br>
   <input id="pin" placeholder="PIN"><br>
   <button onclick="login()">Login</button>
 </div>
 
+<!-- APP -->
 <div id="app" style="display:none;">
   <video id="preview" autoplay></video><br>
+
   <button onclick="startRecording()">Start Recording</button>
   <button onclick="stopRecording()">Stop</button>
   <button onclick="upload()">Upload</button>
@@ -44,6 +59,19 @@
 </div>
 
 <script>
+/* ============================= */
+/* 🔥 SUPABASE CONFIG */
+/* ============================= */
+
+const SUPABASE_URL = "https://czqxzvbggafuwedycdfm.supabase.co";
+const SUPABASE_KEY = "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl";
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ============================= */
+/* CAMERA + RECORDING */
+/* ============================= */
+
 let mediaRecorder;
 let chunks = [];
 
@@ -63,6 +91,7 @@ function login() {
 async function startCamera() {
   let stream = await navigator.mediaDevices.getUserMedia({ video: true });
   document.getElementById("preview").srcObject = stream;
+
   mediaRecorder = new MediaRecorder(stream);
 
   mediaRecorder.ondataavailable = e => chunks.push(e.data);
@@ -77,20 +106,42 @@ function stopRecording() {
   mediaRecorder.stop();
 }
 
-function upload() {
+/* ============================= */
+/* 🚀 UPLOAD TO SUPABASE */
+/* ============================= */
+
+async function upload() {
   let blob = new Blob(chunks, { type: "video/mp4" });
-  let url = URL.createObjectURL(blob);
+  let fileName = Date.now() + ".mp4";
+
+  const { data, error } = await supabase.storage
+    .from("videos")
+    .upload(fileName, blob);
+
+  if (error) {
+    alert("Upload failed ❌");
+    console.log(error);
+    return;
+  }
+
+  let url = SUPABASE_URL + "/storage/v1/object/public/videos/" + fileName;
 
   let videos = JSON.parse(localStorage.getItem("videos") || "[]");
   videos.push(url);
   localStorage.setItem("videos", JSON.stringify(videos));
 
   loadVideos();
-  alert("Uploaded (saved locally as cloud simulation)");
+
+  alert("Uploaded to cloud successfully 🚀");
 }
+
+/* ============================= */
+/* LOAD VIDEOS */
+/* ============================= */
 
 function loadVideos() {
   let videos = JSON.parse(localStorage.getItem("videos") || "[]");
+
   let container = document.getElementById("videos");
   container.innerHTML = "";
 
