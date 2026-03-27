@@ -42,17 +42,24 @@ const supabase = window.supabase.createClient(
   "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl"
 );
 
+// ✅ REAL-TIME AUTH LISTENER (THIS IS THE FIX)
+supabase.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    showApp();
+  } else {
+    showAuth();
+  }
+});
+
 // ✅ CHECK SESSION ON LOAD
 checkUser();
 
 async function checkUser() {
   const { data } = await supabase.auth.getSession();
-  if (data.session) {
-    showApp();
-  }
+  if (data.session) showApp();
 }
 
-// ✅ SIGN UP
+// SIGN UP
 async function signup() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
@@ -63,36 +70,39 @@ async function signup() {
     error ? error.message : "Signup successful! Now login.";
 }
 
-// ✅ LOGIN
+// LOGIN
 async function login() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password
   });
 
   if (error) {
     document.getElementById("msg").innerText = error.message;
-  } else {
-    showApp();
   }
 }
 
-// ✅ SHOW APP
+// SHOW APP
 function showApp() {
   document.getElementById("auth").style.display = "none";
   document.getElementById("app").style.display = "block";
 }
 
-// ✅ LOGOUT
-async function logout() {
-  await supabase.auth.signOut();
-  location.reload();
+// SHOW AUTH
+function showAuth() {
+  document.getElementById("auth").style.display = "block";
+  document.getElementById("app").style.display = "none";
 }
 
-// ✅ UPLOAD
+// LOGOUT
+async function logout() {
+  await supabase.auth.signOut();
+}
+
+// UPLOAD
 async function upload() {
   const file = document.getElementById("file").files[0];
   if (!file) return alert("Select a file");
