@@ -1,158 +1,84 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
   <title>Secure Cloud Camera</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <!-- Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body {
-      font-family: Arial;
-      background: #111;
+      background: #000;
       color: #fff;
+      font-family: Arial;
       text-align: center;
+      margin-top: 100px;
     }
 
-    input, button {
+    input {
+      display: block;
+      margin: 10px auto;
       padding: 10px;
-      margin: 5px;
+      width: 250px;
       border-radius: 5px;
       border: none;
     }
 
     button {
+      padding: 10px 20px;
       background: #00ff99;
-      color: black;
-      font-weight: bold;
-    }
-
-    video {
-      width: 90%;
-      margin-top: 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
     }
   </style>
 </head>
-
 <body>
 
-<h2>Secure Cloud Camera</h2>
+  <h1>Secure Cloud Camera</h1>
 
-<!-- LOGIN -->
-<div id="auth">
-  <input id="email" placeholder="Email"><br>
-  <input id="pin" placeholder="PIN"><br>
+  <input id="email" type="email" placeholder="Email" />
+  <input id="password" type="password" placeholder="Password" />
+
   <button onclick="login()">Login</button>
-</div>
 
-<!-- APP -->
-<div id="app" style="display:none;">
-  <video id="preview" autoplay></video><br>
+  <p id="status"></p>
 
-  <button onclick="startRecording()">Start Recording</button>
-  <button onclick="stopRecording()">Stop</button>
-  <button onclick="upload()">Upload</button>
+  <script>
+    // ✅ YOUR SUPABASE CONFIG
+    const supabaseUrl = "https://czqxzvbggafuwedycdfm.supabase.co";
+    const supabaseKey = "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl";
 
-  <h3>Uploaded Videos</h3>
-  <div id="videos"></div>
-</div>
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-<script>
-/* ============================= */
-/* 🔥 SUPABASE CONFIG */
-/* ============================= */
+    // ✅ LOGIN FUNCTION
+    async function login() {
+      const status = document.getElementById("status");
+      status.innerText = "Logging in...";
 
-const SUPABASE_URL = "https://czqxzvbggafuwedycdfm.supabase.co";
-const SUPABASE_KEY = "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl";
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      console.log("Login clicked");
 
-/* ============================= */
-/* CAMERA + RECORDING */
-/* ============================= */
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password
+      }); // official method 0
 
-let mediaRecorder;
-let chunks = [];
+      if (error) {
+        console.error(error);
+        status.innerText = "❌ " + error.message;
+        return;
+      }
 
-function login() {
-  let email = document.getElementById("email").value;
-  let pin = document.getElementById("pin").value;
+      console.log("Login success:", data);
+      status.innerText = "✅ Login successful!";
 
-  if(email && pin) {
-    localStorage.setItem("user", email);
-    document.getElementById("auth").style.display = "none";
-    document.getElementById("app").style.display = "block";
-    startCamera();
-    loadVideos();
-  }
-}
-
-async function startCamera() {
-  let stream = await navigator.mediaDevices.getUserMedia({ video: true });
-  document.getElementById("preview").srcObject = stream;
-
-  mediaRecorder = new MediaRecorder(stream);
-
-  mediaRecorder.ondataavailable = e => chunks.push(e.data);
-}
-
-function startRecording() {
-  chunks = [];
-  mediaRecorder.start();
-}
-
-function stopRecording() {
-  mediaRecorder.stop();
-}
-
-/* ============================= */
-/* 🚀 UPLOAD TO SUPABASE */
-/* ============================= */
-
-async function upload() {
-  let blob = new Blob(chunks, { type: "video/mp4" });
-  let fileName = Date.now() + ".mp4";
-
-  const { data, error } = await supabase.storage
-    .from("videos")
-    .upload(fileName, blob);
-
-  if (error) {
-    alert("Upload failed ❌");
-    console.log(error);
-    return;
-  }
-
-  let url = SUPABASE_URL + "/storage/v1/object/public/videos/" + fileName;
-
-  let videos = JSON.parse(localStorage.getItem("videos") || "[]");
-  videos.push(url);
-  localStorage.setItem("videos", JSON.stringify(videos));
-
-  loadVideos();
-
-  alert("Uploaded to cloud successfully 🚀");
-}
-
-/* ============================= */
-/* LOAD VIDEOS */
-/* ============================= */
-
-function loadVideos() {
-  let videos = JSON.parse(localStorage.getItem("videos") || "[]");
-
-  let container = document.getElementById("videos");
-  container.innerHTML = "";
-
-  videos.forEach(v => {
-    let vid = document.createElement("video");
-    vid.src = v;
-    vid.controls = true;
-    container.appendChild(vid);
-  });
-}
-</script>
+      // redirect after login
+      setTimeout(() => {
+        window.location.href = "dashboard.html";
+      }, 1500);
+    }
+  </script>
 
 </body>
 </html>
