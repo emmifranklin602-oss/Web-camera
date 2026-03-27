@@ -1,84 +1,83 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
   <title>Secure Cloud Camera</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    body {
-      background: #000;
-      color: #fff;
-      font-family: Arial;
-      text-align: center;
-      margin-top: 100px;
-    }
-
-    input {
-      display: block;
-      margin: 10px auto;
-      padding: 10px;
-      width: 250px;
-      border-radius: 5px;
-      border: none;
-    }
-
-    button {
-      padding: 10px 20px;
-      background: #00ff99;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-  </style>
 </head>
-<body>
 
-  <h1>Secure Cloud Camera</h1>
+<body style="background:black;color:white;text-align:center;margin-top:100px;font-family:sans-serif;">
 
-  <input id="email" type="email" placeholder="Email" />
-  <input id="password" type="password" placeholder="Password" />
+<h1>Secure Cloud Camera</h1>
 
-  <button onclick="login()">Login</button>
+<input id="email" placeholder="Email" style="padding:10px;margin:10px;"><br>
+<input id="password" type="password" placeholder="Password" style="padding:10px;margin:10px;"><br>
 
-  <p id="status"></p>
+<button onclick="signup()" style="padding:10px;background:#00ff99;">Sign Up</button>
+<button onclick="login()" style="padding:10px;background:#00ff99;">Login</button>
 
-  <script>
-    // ✅ YOUR SUPABASE CONFIG
-    const supabaseUrl = "https://czqxzvbggafuwedycdfm.supabase.co";
-    const supabaseKey = "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl";
+<p id="msg"></p>
 
-    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+<div id="dash" style="display:none;">
+  <h2>✅ Logged In Successfully</h2>
+  <p>Your app is now connected 🔥</p>
+  <button onclick="logout()">Logout</button>
+</div>
 
-    // ✅ LOGIN FUNCTION
-    async function login() {
-      const status = document.getElementById("status");
-      status.innerText = "Logging in...";
+<script>
+const supabase = window.supabase.createClient(
+  "https://czqxzvbggafuwedycdfm.supabase.co",
+  "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl"
+);
 
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
+function show(message, color="yellow") {
+  const msg = document.getElementById("msg");
+  msg.innerText = message;
+  msg.style.color = color;
+}
 
-      console.log("Login clicked");
+async function signup() {
+  show("Creating account...");
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password
-      }); // official method 0
+  const { error } = await supabase.auth.signUp({
+    email: document.getElementById("email").value,
+    password: document.getElementById("password").value
+  });
 
-      if (error) {
-        console.error(error);
-        status.innerText = "❌ " + error.message;
-        return;
-      }
+  if (error) {
+    show("❌ " + error.message, "red");
+  } else {
+    show("✅ Account created! Now click Login.");
+  }
+}
 
-      console.log("Login success:", data);
-      status.innerText = "✅ Login successful!";
+async function login() {
+  show("Logging in...");
 
-      // redirect after login
-      setTimeout(() => {
-        window.location.href = "dashboard.html";
-      }, 1500);
-    }
-  </script>
+  const { error } = await supabase.auth.signInWithPassword({
+    email: document.getElementById("email").value,
+    password: document.getElementById("password").value
+  });
+
+  if (error) {
+    show("❌ " + error.message, "red");
+  } else {
+    show("✅ Login successful!");
+    document.getElementById("dash").style.display = "block";
+  }
+}
+
+async function logout() {
+  await supabase.auth.signOut();
+  location.reload();
+}
+
+// auto login check
+supabase.auth.getSession().then(({ data }) => {
+  if (data.session) {
+    document.getElementById("dash").style.display = "block";
+  }
+});
+</script>
 
 </body>
 </html>
