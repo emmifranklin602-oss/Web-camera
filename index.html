@@ -3,29 +3,36 @@
 <head>
   <title>Secure Cloud Camera</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      background: black;
+      color: white;
+      text-align: center;
+      font-family: Arial;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+    }
+  </style>
 </head>
 
-<body style="background:black;color:white;text-align:center;margin-top:80px;font-family:sans-serif;">
+<body>
 
 <h1>Secure Cloud Camera</h1>
 
-<input id="email" placeholder="Email"><br>
-<input id="password" type="password" placeholder="Password"><br>
+<div id="auth">
+  <input id="email" placeholder="Email"><br>
+  <input id="password" type="password" placeholder="Password"><br>
+  <button onclick="signup()">Sign Up</button>
+  <button onclick="login()">Login</button>
+  <p id="msg"></p>
+</div>
 
-<button onclick="signup()">Sign Up</button>
-<button onclick="login()">Login</button>
-
-<p id="msg"></p>
-
-<div id="dash" style="display:none;">
-  <h2>✅ Logged In</h2>
-
-  <input type="file" id="fileInput"><br><br>
-  <button onclick="uploadVideo()">Upload Video</button>
-
-  <p id="uploadStatus"></p>
-
-  <br>
+<div id="app" style="display:none;">
+  <h2>Welcome 🎉</h2>
+  <input type="file" id="file"><br><br>
+  <button onclick="upload()">Upload Video</button><br><br>
   <button onclick="logout()">Logout</button>
 </div>
 
@@ -35,60 +42,67 @@ const supabase = window.supabase.createClient(
   "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl"
 );
 
-function show(m,c="yellow"){msg.innerText=m;msg.style.color=c;}
+// ✅ CHECK SESSION ON LOAD
+checkUser();
 
-async function signup(){
-  show("Creating account...");
-  const {error} = await supabase.auth.signUp({
-    email: email.value,
-    password: password.value
+async function checkUser() {
+  const { data } = await supabase.auth.getSession();
+  if (data.session) {
+    showApp();
+  }
+}
+
+// ✅ SIGN UP
+async function signup() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const { error } = await supabase.auth.signUp({ email, password });
+
+  document.getElementById("msg").innerText =
+    error ? error.message : "Signup successful! Now login.";
+}
+
+// ✅ LOGIN
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
   });
-  if(error) show(error.message,"red");
-  else show("Account created. Now login.");
-}
 
-async function login(){
-  show("Logging in...");
-  const {error} = await supabase.auth.signInWithPassword({
-    email: email.value,
-    password: password.value
-  });
-  if(error) show(error.message,"red");
-  else{
-    show("Login success");
-    dash.style.display="block";
+  if (error) {
+    document.getElementById("msg").innerText = error.message;
+  } else {
+    showApp();
   }
 }
 
-async function uploadVideo(){
-  const file = document.getElementById("fileInput").files[0];
-  if(!file){
-    uploadStatus.innerText="Select a file first";
-    return;
-  }
-
-  const fileName = Date.now() + "-" + file.name;
-
-  const { error } = await supabase
-    .storage
-    .from("videos")
-    .upload(fileName, file);
-
-  if(error){
-    uploadStatus.innerText = "❌ " + error.message;
-  }else{
-    uploadStatus.innerText = "✅ Upload successful!";
-  }
+// ✅ SHOW APP
+function showApp() {
+  document.getElementById("auth").style.display = "none";
+  document.getElementById("app").style.display = "block";
 }
 
-async function logout(){
+// ✅ LOGOUT
+async function logout() {
   await supabase.auth.signOut();
   location.reload();
 }
 
-supabase.auth.getSession().then(({data})=>{
-  if(data.session) dash.style.display="block";
-});
+// ✅ UPLOAD
+async function upload() {
+  const file = document.getElementById("file").files[0];
+  if (!file) return alert("Select a file");
+
+  const { error } = await supabase.storage
+    .from("videos")
+    .upload(Date.now() + "-" + file.name, file);
+
+  alert(error ? error.message : "Uploaded!");
+}
 </script>
 
 </body>
