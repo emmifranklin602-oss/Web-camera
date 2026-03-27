@@ -1,125 +1,167 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Secure Cloud Camera</title>
+<meta charset="UTF-8">
+<title>Secure Cloud Camera</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body {
+  background: #000;
+  color: #fff;
+  text-align: center;
+  font-family: Arial;
+}
+
+.container {
+  margin-top: 40px;
+}
+
+input, button {
+  padding: 12px;
+  margin: 8px;
+  font-size: 16px;
+  border-radius: 6px;
+  border: none;
+}
+
+button {
+  background: #fff;
+  cursor: pointer;
+}
+
+video {
+  width: 90%;
+  max-width: 400px;
+  border-radius: 10px;
+  margin-top: 20px;
+}
+
+#recordBtn {
+  background: red;
+  color: white;
+}
+
+#uploadBtn {
+  background: green;
+  color: white;
+}
+</style>
 </head>
 
-<body style="background:black;color:white;text-align:center;font-family:Arial">
+<body>
 
-<h1>Secure Cloud Camera</h1>
+<h1>📹 Secure Cloud Camera</h1>
 
-<!-- AUTH -->
-<div id="auth">
-  <input id="email" placeholder="Email"><br><br>
-  <input id="password" type="password" placeholder="Password"><br><br>
+<div id="auth" class="container">
+  <input type="email" id="email" placeholder="Email"><br>
+  <input type="password" id="password" placeholder="Password"><br>
   <button onclick="signup()">Sign Up</button>
   <button onclick="login()">Login</button>
   <p id="msg"></p>
 </div>
 
-<!-- APP -->
-<div id="app" style="display:none;">
+<div id="app" class="container" style="display:none;">
   <h2>Welcome 🎉</h2>
 
-  <input type="file" id="file"><br><br>
-  <button onclick="upload()">Upload Video</button><br><br>
+  <video id="preview" autoplay muted></video><br>
 
+  <button id="recordBtn" onclick="startRecording()">Start Recording</button>
+  <button onclick="stopRecording()">Stop</button><br>
+
+  <button id="uploadBtn" onclick="uploadVideo()">Upload</button>
   <button onclick="logout()">Logout</button>
+
+  <p id="status"></p>
 </div>
 
-<script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-
-// ✅ YOUR SUPABASE (ALREADY CONNECTED)
-const supabase = createClient(
+<script>
+const supabase = window.supabase.createClient(
   "https://czqxzvbggafuwedycdfm.supabase.co",
   "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl"
 );
 
-// ✅ CHECK USER ON LOAD
-async function checkUser() {
-  const { data } = await supabase.auth.getSession();
-  if (data.session) {
-    showApp();
+let mediaRecorder;
+let recordedChunks = [];
+let videoBlob;
+
+// AUTH
+async function signup() {
+  const { error } = await supabase.auth.signUp({
+    email: email.value,
+    password: password.value
+  });
+  msg.innerText = error ? error.message : "Signup successful ✅";
+}
+
+async function login() {
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.value,
+    password: password.value
+  });
+  if (error) {
+    msg.innerText = error.message;
   } else {
-    showAuth();
+    auth.style.display = "none";
+    app.style.display = "block";
+    startCamera();
   }
 }
 
-// ✅ REAL-TIME AUTH FIX
-supabase.auth.onAuthStateChange((event, session) => {
-  if (session) {
-    showApp();
-  } else {
-    showAuth();
+async function logout() {
+  await supabase.auth.signOut();
+  location.reload();
+}
+
+// CAMERA
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  preview.srcObject = stream;
+
+  mediaRecorder = new MediaRecorder(stream);
+
+  mediaRecorder.ondataavailable = e => {
+    recordedChunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = () => {
+    videoBlob = new Blob(recordedChunks, { type: "video/webm" });
+    localStorage.setItem("video", URL.createObjectURL(videoBlob)); // offline save
+    status.innerText = "Saved locally ✅";
+  };
+}
+
+function startRecording() {
+  recordedChunks = [];
+  mediaRecorder.start();
+  status.innerText = "Recording...";
+}
+
+function stopRecording() {
+  mediaRecorder.stop();
+}
+
+// UPLOAD
+async function uploadVideo() {
+  if (!videoBlob) {
+    status.innerText = "No video recorded";
+    return;
   }
-});
 
-// SIGNUP
-window.signup = async function () {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+  const fileName = `video_${Date.now()}.webm`;
 
-  const { error } = await supabase.auth.signUp({
-    email,
-    password
-  });
-
-  document.getElementById("msg").innerText =
-    error ? "❌ " + error.message : "✅ Signup successful";
-};
-
-// LOGIN
-window.login = async function () {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-
-  document.getElementById("msg").innerText = "⏳ Logging in...";
-
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
+  const { data, error } = await supabase.storage
+    .from("videos")
+    .upload(fileName, videoBlob);
 
   if (error) {
-    document.getElementById("msg").innerText = "❌ " + error.message;
+    status.innerText = "Upload failed ❌";
   } else {
-    document.getElementById("msg").innerText = "✅ Login successful";
+    status.innerText = "Uploaded to cloud ☁️✅";
   }
-};
-
-// SHOW APP
-function showApp() {
-  document.getElementById("auth").style.display = "none";
-  document.getElementById("app").style.display = "block";
 }
-
-// SHOW AUTH
-function showAuth() {
-  document.getElementById("auth").style.display = "block";
-  document.getElementById("app").style.display = "none";
-}
-
-// LOGOUT
-window.logout = async function () {
-  await supabase.auth.signOut();
-};
-
-// UPLOAD TO YOUR "videos" BUCKET
-window.upload = async function () {
-  const file = document.getElementById("file").files[0];
-  if (!file) return alert("Select a file");
-
-  const { error } = await supabase.storage
-    .from("videos")
-    .upload(Date.now() + "-" + file.name, file);
-
-  alert(error ? error.message : "✅ Uploaded successfully");
-};
-
-// RUN
-checkUser();
-
 </script>
 
 </body>
