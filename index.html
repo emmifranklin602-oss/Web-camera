@@ -1,21 +1,125 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>TEST</title>
+  <title>Secure Cloud Camera</title>
 </head>
 
-<body style="background:black;color:white;text-align:center">
+<body style="background:black;color:white;text-align:center;font-family:Arial">
 
-<h1>TEST BUTTON</h1>
+<h1>Secure Cloud Camera</h1>
 
-<button onclick="test()">Click Me</button>
+<!-- AUTH -->
+<div id="auth">
+  <input id="email" placeholder="Email"><br><br>
+  <input id="password" type="password" placeholder="Password"><br><br>
+  <button onclick="signup()">Sign Up</button>
+  <button onclick="login()">Login</button>
+  <p id="msg"></p>
+</div>
 
-<p id="msg"></p>
+<!-- APP -->
+<div id="app" style="display:none;">
+  <h2>Welcome 🎉</h2>
 
-<script>
-function test() {
-  document.getElementById("msg").innerText = "JS WORKING ✅";
+  <input type="file" id="file"><br><br>
+  <button onclick="upload()">Upload Video</button><br><br>
+
+  <button onclick="logout()">Logout</button>
+</div>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+// ✅ YOUR SUPABASE (ALREADY CONNECTED)
+const supabase = createClient(
+  "https://czqxzvbggafuwedycdfm.supabase.co",
+  "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl"
+);
+
+// ✅ CHECK USER ON LOAD
+async function checkUser() {
+  const { data } = await supabase.auth.getSession();
+  if (data.session) {
+    showApp();
+  } else {
+    showAuth();
+  }
 }
+
+// ✅ REAL-TIME AUTH FIX
+supabase.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    showApp();
+  } else {
+    showAuth();
+  }
+});
+
+// SIGNUP
+window.signup = async function () {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const { error } = await supabase.auth.signUp({
+    email,
+    password
+  });
+
+  document.getElementById("msg").innerText =
+    error ? "❌ " + error.message : "✅ Signup successful";
+};
+
+// LOGIN
+window.login = async function () {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  document.getElementById("msg").innerText = "⏳ Logging in...";
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    document.getElementById("msg").innerText = "❌ " + error.message;
+  } else {
+    document.getElementById("msg").innerText = "✅ Login successful";
+  }
+};
+
+// SHOW APP
+function showApp() {
+  document.getElementById("auth").style.display = "none";
+  document.getElementById("app").style.display = "block";
+}
+
+// SHOW AUTH
+function showAuth() {
+  document.getElementById("auth").style.display = "block";
+  document.getElementById("app").style.display = "none";
+}
+
+// LOGOUT
+window.logout = async function () {
+  await supabase.auth.signOut();
+};
+
+// UPLOAD TO YOUR "videos" BUCKET
+window.upload = async function () {
+  const file = document.getElementById("file").files[0];
+  if (!file) return alert("Select a file");
+
+  const { error } = await supabase.storage
+    .from("videos")
+    .upload(Date.now() + "-" + file.name, file);
+
+  alert(error ? error.message : "✅ Uploaded successfully");
+};
+
+// RUN
+checkUser();
+
 </script>
 
 </body>
