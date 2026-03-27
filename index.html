@@ -3,38 +3,19 @@
 <head>
   <title>Secure Cloud Camera</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    body {
-      background: black;
-      color: white;
-      text-align: center;
-      font-family: Arial;
-    }
-    input, button {
-      padding: 10px;
-      margin: 5px;
-    }
-  </style>
 </head>
 
-<body>
+<body style="background:black;color:white;text-align:center;font-family:Arial">
 
 <h1>Secure Cloud Camera</h1>
 
-<div id="auth">
-  <input id="email" placeholder="Email"><br>
-  <input id="password" type="password" placeholder="Password"><br>
-  <button onclick="signup()">Sign Up</button>
-  <button onclick="login()">Login</button>
-  <p id="msg"></p>
-</div>
+<input id="email" placeholder="Email"><br><br>
+<input id="password" type="password" placeholder="Password"><br><br>
 
-<div id="app" style="display:none;">
-  <h2>Welcome 🎉</h2>
-  <input type="file" id="file"><br><br>
-  <button onclick="upload()">Upload Video</button><br><br>
-  <button onclick="logout()">Logout</button>
-</div>
+<button onclick="signup()">Sign Up</button>
+<button onclick="login()">Login</button>
+
+<p id="msg"></p>
 
 <script>
 const supabase = window.supabase.createClient(
@@ -42,32 +23,22 @@ const supabase = window.supabase.createClient(
   "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl"
 );
 
-// ✅ REAL-TIME AUTH LISTENER (THIS IS THE FIX)
-supabase.auth.onAuthStateChange((event, session) => {
-  if (session) {
-    showApp();
-  } else {
-    showAuth();
-  }
-});
-
-// ✅ CHECK SESSION ON LOAD
-checkUser();
-
-async function checkUser() {
-  const { data } = await supabase.auth.getSession();
-  if (data.session) showApp();
-}
-
-// SIGN UP
+// SIGNUP
 async function signup() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const { error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password
+  });
 
-  document.getElementById("msg").innerText =
-    error ? error.message : "Signup successful! Now login.";
+  if (error) {
+    document.getElementById("msg").innerText = "❌ " + error.message;
+  } else {
+    document.getElementById("msg").innerText = "✅ Signup success";
+    console.log(data);
+  }
 }
 
 // LOGIN
@@ -75,43 +46,22 @@ async function login() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const { error } = await supabase.auth.signInWithPassword({
+  document.getElementById("msg").innerText = "⏳ Logging in...";
+
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password
   });
 
+  console.log("LOGIN RESULT:", data, error);
+
   if (error) {
-    document.getElementById("msg").innerText = error.message;
+    document.getElementById("msg").innerText = "❌ " + error.message;
+  } else {
+    document.getElementById("msg").innerText = "✅ LOGIN SUCCESS";
+
+    alert("Login worked!");
   }
-}
-
-// SHOW APP
-function showApp() {
-  document.getElementById("auth").style.display = "none";
-  document.getElementById("app").style.display = "block";
-}
-
-// SHOW AUTH
-function showAuth() {
-  document.getElementById("auth").style.display = "block";
-  document.getElementById("app").style.display = "none";
-}
-
-// LOGOUT
-async function logout() {
-  await supabase.auth.signOut();
-}
-
-// UPLOAD
-async function upload() {
-  const file = document.getElementById("file").files[0];
-  if (!file) return alert("Select a file");
-
-  const { error } = await supabase.storage
-    .from("videos")
-    .upload(Date.now() + "-" + file.name, file);
-
-  alert(error ? error.message : "Uploaded!");
 }
 </script>
 
