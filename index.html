@@ -6,40 +6,35 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<style>
-body {
-  background: black;
-  color: white;
+
+(style body 
   font-family: Arial;
+  background: linear-gradient(135deg, #000, #1a1a1a);
+  color: #fff;
   text-align: center;
 }
 
-.container {
-  max-width: 400px;
-  margin: auto;
-  padding-top: 40px;
-}
-
 input, button {
-  width: 90%;
   padding: 12px;
   margin: 8px;
   border-radius: 8px;
   border: none;
+  width: 80%;
+  max-width: 300px;
 }
 
 button {
-  background: white;
-  color: black;
+  background: #00c853;
+  color: white;
   font-weight: bold;
 }
 
 video {
-  width: 100%;
+  width: 90%;
+  max-width: 400px;
+  margin-top: 15px;
   border-radius: 10px;
-  margin-top: 10px;
 }
-
 #dashboard {
   display: none;
 }
@@ -80,6 +75,26 @@ video {
 </div>
 
 <script>
+async function saveVideo() {
+  let blob = new Blob(chunks, { type: "video/webm" });
+  let url = URL.createObjectURL(blob);
+
+  // Save locally
+  let videos = JSON.parse(localStorage.getItem("videos") || "[]");
+  videos.push(url);
+  localStorage.setItem("videos", JSON.stringify(videos));
+
+  loadVideos();
+
+  alert("📱 Saved locally");
+
+  // Auto upload if online
+  if (navigator.onLine) {
+    uploadToCloud(blob);
+  } else {
+    alert("📶 Offline — will upload later");
+  }
+}
 const SUPABASE_URL = "https://czqxzvbggafuwedycdfm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl";
 
@@ -123,11 +138,13 @@ async function startCamera() {
   document.getElementById("preview").srcObject = stream;
 
   mediaRecorder = new MediaRecorder(stream);
-
-  mediaRecorder.ondataavailable = e => {
+mediaRecorder.ondataavailable = e => {
+  if (e.data.size > 0) {
     chunks.push(e.data);
-  };
+  }
+};
 
+mediaRecorder.onstop = saveVideo;
   mediaRecorder.onstop = saveVideo;
 }
 
@@ -145,9 +162,8 @@ function stopRecording() {
 
 // SAVE OFFLINE
 function saveVideo() {
-  const blob = new Blob(chunks, { type: "video/webm" });
-  const reader = new FileReader();
-
+  
+let blob = new Blob(chunks, { type: "video/webm" });
   reader.onloadend = () => {
     let videos = JSON.parse(localStorage.getItem("videos") || "[]");
     videos.push(reader.result);
@@ -196,11 +212,25 @@ async function uploadSaved() {
 
   localStorage.setItem("videos", JSON.stringify(videos));
   document.getElementById("status").innerText = "Upload complete ✅";
-}
+}window.addEventListener("online", () => {
+  alert("📶 Back online — uploading saved videos...");
+});
 
 // AUTO CHECK INTERNET
 window.addEventListener("online", uploadSaved);
 </script>
 
 </body>
-</html>
+</html>async function uploadToCloud(blob) {
+  const fileName = "video_" + Date.now() + ".webm";
+
+  try {
+    // Simulating cloud (since your current app is local-based)
+    console.log("Uploading to cloud:", fileName);
+
+    alert("☁️ Uploaded to cloud (simulation)");
+  } catch (err) {
+    console.error(err);
+    alert("❌ Upload failed");
+  }
+}
