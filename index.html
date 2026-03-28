@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Secure Cloud Camera</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- ✅ Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: linear-gradient(135deg, #000, #1a1a1a);
+      color: #fff;
+      text-align: center;
+      padding: 10px;
+    }
+
+    h2 {
+      margin-top: 20px;
+    }
+
+    input, button {
+      padding: 12px;
+      margin: 8px;
+      border-radius: 8px;
+      border: none;
+      width: 85%;
+      max-width: 300px;
+      font-size: 15px;
+    }
+
+    button {
+      background: #00c853;
+      color: white;
+      font-weight: bold;
+    }
+
+    video {
+      width: 90%;
+      max-width: 400px;
+      margin-top: 15px;
+      border-radius: 10px;
+    }
+
+    #videos video {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>📹 Secure Cloud Camera</h2>
+
+<div id="auth">
+  <input id="email" placeholder="Email"><br>
+  <input id="pin" placeholder="PIN"><br>
+  <button onclick="login()">Login</button>
+</div>
+
+<div id="app" style="display:none;">
+  <video id="preview" autoplay></video><br>
+  <button onclick="startRecording()">Start Recording</button>
+  <button onclick="stopRecording()">Stop</button>
+  <button onclick="upload()">Upload</button>
+
+  <h3>Uploaded Videos</h3>
+  <div id="videos"></div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://czqxzvbggafuwedycdfm.supabase.co";
+const SUPABASE_KEY = "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl";
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let mediaRecorder;
+let chunks = [];
+
+function login() {
+  let email = document.getElementById("email").value;
+  let pin = document.getElementById("pin").value;
+
+  if(email && pin) {
+    localStorage.setItem("user", email);
+    document.getElementById("auth").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    startCamera();
+    loadVideos();
+  }
+}
+
+async function startCamera() {
+  let stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  document.getElementById("preview").srcObject = stream;
+  mediaRecorder = new MediaRecorder(stream);
+
+  // ✅ FIXED ERROR (safe data)
+  mediaRecorder.ondataavailable = e => {
+    if (e.data.size > 0) {
+      chunks.push(e.data);
+    }
+  };
+}
+
+function startRecording() {
+  chunks = [];
+  mediaRecorder.start();
+}
+
+function stopRecording() {
+  mediaRecorder.stop();
+}
+
+async function upload() {
+  // ✅ FIXED ERROR (correct format)
+  let blob = new Blob(chunks, { type: "video/webm" });
+  let url = URL.createObjectURL(blob);
+
+  let videos = JSON.parse(localStorage.getItem("videos") || "[]");
+  videos.push(url);
+  localStorage.setItem("videos", JSON.stringify(videos));
+
+  loadVideos();
+
+  // ☁️ REAL UPLOAD TO SUPABASE
+  const fileName = "video_" + Date.now() + ".webm";
+
+  const { error } = await supabase.storage
+    .from('videos')
+    .upload(fileName, blob);
+
+  if (error) {
+    alert("❌ Upload failed");
+    console.error(error);
+  } else {
+    alert("✅ Uploaded to cloud");
+  }
+}
+
+function loadVideos() {
+  let videos = JSON.parse(localStorage.getItem("videos") || "[]");
+  let container = document.getElementById("videos");
+  container.innerHTML = "";
+
+  videos.forEach(v => {
+    let vid = document.createElement("video");
+    vid.src = v;
+    vid.controls = true;
+    container.appendChild(vid);
+  });
+}
+</script>
+
+</body>
+</html>
