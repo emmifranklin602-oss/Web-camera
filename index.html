@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Secure Cloud Camera</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial;
+      background: #111;
+      color: #fff;
+      text-align: center;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      border-radius: 5px;
+      border: none;
+    }
+    video {
+      width: 90%;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>Secure Cloud Camera</h2>
+
+<div id="auth">
+  <input id="email" placeholder="Email"><br>
+  <input id="pin" placeholder="PIN"><br>
+  <button onclick="login()">Login</button>
+</div>
+
+<div id="app" style="display:none;">
+  <video id="preview" autoplay></video><br>
+  <button onclick="startRecording()">Start Recording</button>
+  <button onclick="stopRecording()">Stop</button>
+  <button onclick="upload()">Upload</button>
+
+  <h3>Uploaded Videos</h3>
+  <div id="videos"></div>
+</div>
+
+<script>
+let mediaRecorder;
+let chunks = [];
+
+function login() {
+  let email = document.getElementById("email").value;
+  let pin = document.getElementById("pin").value;
+
+  if(email && pin) {
+    localStorage.setItem("user", email);
+    document.getElementById("auth").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    startCamera();
+    loadVideos();
+  }
+}
+
+async function startCamera() {
+  let stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  document.getElementById("preview").srcObject = stream;
+  mediaRecorder = new MediaRecorder(stream);
+
+  // ✅ FIXED (safe data collection)
+  mediaRecorder.ondataavailable = e => {
+    if (e.data.size > 0) {
+      chunks.push(e.data);
+    }
+  };
+}
+
+function startRecording() {
+  chunks = [];
+  mediaRecorder.start();
+}
+
+function stopRecording() {
+  mediaRecorder.stop();
+}
+
+function upload() {
+  // ✅ FIXED (correct format)
+  let blob = new Blob(chunks, { type: "video/webm" });
+  let url = URL.createObjectURL(blob);
+
+  let videos = JSON.parse(localStorage.getItem("videos") || "[]");
+  videos.push(url);
+  localStorage.setItem("videos", JSON.stringify(videos));
+
+  loadVideos();
+  alert("Uploaded (saved locally as cloud simulation)");
+}
+
+function loadVideos() {
+  let videos = JSON.parse(localStorage.getItem("videos") || "[]");
+  let container = document.getElementById("videos");
+  container.innerHTML = "";
+
+  videos.forEach(v => {
+    let vid = document.createElement("video");
+    vid.src = v;
+    vid.controls = true;
+    container.appendChild(vid);
+  });
+}
+</script>
+
+</body>
+</html>
