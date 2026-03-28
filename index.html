@@ -1,112 +1,114 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Secure Cloud Camera</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Secure Cloud Camera</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 body {
-  background: #000;
-  color: #fff;
-  text-align: center;
+  background: black;
+  color: white;
   font-family: Arial;
+  text-align: center;
 }
 
 .container {
-  margin-top: 40px;
+  max-width: 400px;
+  margin: auto;
+  padding-top: 40px;
 }
 
 input, button {
+  width: 90%;
   padding: 12px;
   margin: 8px;
-  font-size: 16px;
-  border-radius: 6px;
+  border-radius: 8px;
   border: none;
 }
 
 button {
-  background: #fff;
-  cursor: pointer;
+  background: white;
+  color: black;
+  font-weight: bold;
 }
 
 video {
-  width: 90%;
-  max-width: 400px;
+  width: 100%;
   border-radius: 10px;
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
-#recordBtn {
-  background: red;
-  color: white;
-}
-
-#uploadBtn {
-  background: green;
-  color: white;
+#dashboard {
+  display: none;
 }
 </style>
 </head>
 
 <body>
 
+<div class="container">
+
 <h1>📹 Secure Cloud Camera</h1>
 
-<div id="auth" class="container">
-  <input type="email" id="email" placeholder="Email"><br>
-  <input type="password" id="password" placeholder="Password"><br>
-  <button onclick="signup()">Sign Up</button>
-  <button onclick="login()">Login</button>
-  <p id="msg"></p>
+<div id="auth">
+<input id="email" placeholder="Email">
+<input id="password" type="password" placeholder="Password">
+
+<button onclick="signup()">Sign Up</button>
+<button onclick="login()">Login</button>
+
+<p id="msg"></p>
 </div>
 
-<div id="app" class="container" style="display:none;">
-  <h2>Welcome 🎉</h2>
+<div id="dashboard">
+<h2>Welcome 🎉</h2>
 
-  <video id="preview" autoplay muted></video><br>
+<video id="preview" autoplay muted></video>
 
-  <button id="recordBtn" onclick="startRecording()">Start Recording</button>
-  <button onclick="stopRecording()">Stop</button><br>
+<button onclick="startCamera()">Start Camera</button>
+<button onclick="startRecording()">Start Recording</button>
+<button onclick="stopRecording()">Stop Recording</button>
 
-  <button id="uploadBtn" onclick="uploadVideo()">Upload</button>
-  <button onclick="logout()">Logout</button>
+<button onclick="uploadSaved()">Upload Saved Videos</button>
+<button onclick="logout()">Logout</button>
 
-  <p id="status"></p>
+<p id="status"></p>
+</div>
+
 </div>
 
 <script>
-const supabase = window.supabase.createClient(
-  "https://czqxzvbggafuwedycdfm.supabase.co",
-  "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl"
-);
+const SUPABASE_URL = "https://czqxzvbggafuwedycdfm.supabase.co";
+const SUPABASE_KEY = "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl";
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let mediaRecorder;
-let recordedChunks = [];
-let videoBlob;
+let chunks = [];
 
 // AUTH
 async function signup() {
-  const { error } = await supabase.auth.signUp({
-    email: email.value,
-    password: password.value
-  });
-  msg.innerText = error ? error.message : "Signup successful ✅";
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const { error } = await supabase.auth.signUp({ email, password });
+
+  document.getElementById("msg").innerText = error ? error.message : "Signup successful ✅";
 }
 
 async function login() {
-  const { error } = await supabase.auth.signInWithPassword({
-    email: email.value,
-    password: password.value
-  });
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
   if (error) {
-    msg.innerText = error.message;
+    document.getElementById("msg").innerText = error.message;
   } else {
-    auth.style.display = "none";
-    app.style.display = "block";
-    startCamera();
+    document.getElementById("auth").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
   }
 }
 
@@ -118,50 +120,86 @@ async function logout() {
 // CAMERA
 async function startCamera() {
   const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  preview.srcObject = stream;
+  document.getElementById("preview").srcObject = stream;
 
   mediaRecorder = new MediaRecorder(stream);
 
   mediaRecorder.ondataavailable = e => {
-    recordedChunks.push(e.data);
+    chunks.push(e.data);
   };
 
-  mediaRecorder.onstop = () => {
-    videoBlob = new Blob(recordedChunks, { type: "video/webm" });
-    localStorage.setItem("video", URL.createObjectURL(videoBlob)); // offline save
-    status.innerText = "Saved locally ✅";
-  };
+  mediaRecorder.onstop = saveVideo;
 }
 
+// RECORD
 function startRecording() {
-  recordedChunks = [];
+  chunks = [];
   mediaRecorder.start();
-  status.innerText = "Recording...";
+  document.getElementById("status").innerText = "Recording...";
 }
 
 function stopRecording() {
   mediaRecorder.stop();
+  document.getElementById("status").innerText = "Stopped";
 }
 
-// UPLOAD
-async function uploadVideo() {
-  if (!videoBlob) {
-    status.innerText = "No video recorded";
+// SAVE OFFLINE
+function saveVideo() {
+  const blob = new Blob(chunks, { type: "video/webm" });
+  const reader = new FileReader();
+
+  reader.onloadend = () => {
+    let videos = JSON.parse(localStorage.getItem("videos") || "[]");
+    videos.push(reader.result);
+    localStorage.setItem("videos", JSON.stringify(videos));
+
+    document.getElementById("status").innerText = "Saved offline ✅";
+
+    autoUpload();
+  };
+
+  reader.readAsDataURL(blob);
+}
+
+// AUTO UPLOAD WHEN ONLINE
+async function autoUpload() {
+  if (navigator.onLine) {
+    uploadSaved();
+  } else {
+    document.getElementById("status").innerText = "Offline - will upload later";
+  }
+}
+
+// MANUAL UPLOAD
+async function uploadSaved() {
+  let videos = JSON.parse(localStorage.getItem("videos") || "[]");
+
+  if (videos.length === 0) {
+    document.getElementById("status").innerText = "No videos to upload";
     return;
   }
 
-  const fileName = `video_${Date.now()}.webm`;
+  for (let i = 0; i < videos.length; i++) {
+    let blob = await (await fetch(videos[i])).blob();
 
-  const { data, error } = await supabase.storage
-    .from("videos")
-    .upload(fileName, videoBlob);
+    const fileName = "video_" + Date.now() + ".webm";
 
-  if (error) {
-    status.innerText = "Upload failed ❌";
-  } else {
-    status.innerText = "Uploaded to cloud ☁️✅";
+    const { error } = await supabase.storage
+      .from("videos")
+      .upload(fileName, blob);
+
+    if (!error) {
+      videos.splice(i, 1);
+      i--;
+    }
   }
+
+  localStorage.setItem("videos", JSON.stringify(videos));
+  document.getElementById("status").innerText = "Upload complete ✅";
 }
+
+// AUTO CHECK INTERNET
+window.addEventListener("online", uploadSaved);
 </script>
 
 </body>
