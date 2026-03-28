@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Secure Cloud Camera</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: linear-gradient(135deg, #000, #1a1a1a, #111);
+      color: #fff;
+      text-align: center;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: bold;
+      margin-top: 15px;
+    }
+
+    .box {
+      background: #1a1a1a;
+      padding: 15px;
+      border-radius: 10px;
+      max-width: 380px;
+      margin: auto;
+    }
+
+    input, button {
+      padding: 10px;
+      margin: 6px;
+      border-radius: 6px;
+      border: none;
+      width: 85%;
+      max-width: 260px;
+    }
+
+    button {
+      background: #00c853;
+      color: white;
+      font-weight: bold;
+    }
+
+    video {
+      width: 90%;
+      max-width: 320px;
+      margin-top: 10px;
+      border-radius: 10px;
+      background: black;
+    }
+
+    .status {
+      font-size: 12px;
+      color: #aaa;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2 id="title">📹 Secure Cloud Camera</h2>
+
+<div id="auth" class="box">
+  <input id="email" placeholder="Email"><br>
+  <input id="pin" placeholder="PIN"><br>
+  <button onclick="login()">Login</button>
+</div>
+
+<div id="app" class="box" style="display:none;">
+  <video id="preview" autoplay playsinline></video><br>
+
+  <button onclick="startRecording()">Start Recording</button>
+  <button onclick="stopRecording()">Stop</button>
+  <button onclick="upload()">Upload</button>
+
+  <div class="status" id="status"></div>
+
+  <h3>Uploaded Videos</h3>
+  <div id="videos"></div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://czqxzvbggafuwedycdfm.supabase.co";
+const SUPABASE_KEY = "sb_publishable_umr4deBhxvaiAFqUvcfdQw_q4G6HSRl";
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let mediaRecorder;
+let chunks = [];
+
+function setStatus(msg) {
+  document.getElementById("status").innerText = msg;
+}
+
+function login() {
+  let email = document.getElementById("email").value;
+  let pin = document.getElementById("pin").value;
+
+  if(email && pin) {
+    localStorage.setItem("user", email);
+
+    document.getElementById("auth").style.display = "none";
+    document.getElementById("app").style.display = "block";
+
+    document.getElementById("title").innerText = "📹 " + email;
+
+    startCamera();
+    loadVideos();
+  }
+}
+
+async function startCamera() {
+  let stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+  document.getElementById("preview").srcObject = stream;
+
+  mediaRecorder = new MediaRecorder(stream);
+
+  // ✅ FIXED recording bug
+  mediaRecorder.ondataavailable = e => {
+    if (e.data.size > 0) {
+      chunks.push(e.data);
+    }
+  };
+}
+
+function startRecording() {
+  chunks = [];
+  mediaRecorder.start();
+  setStatus("🎥 Recording...");
+}
+
+function stopRecording() {
+  mediaRecorder.stop();
+  setStatus("⏹ Recording stopped");
+}
+
+async function upload() {
+  if (chunks.length === 0) {
+    alert("No video recorded");
+    return;
+  }
+
+  // ✅ FIXED format
+  let blob = new Blob(chunks, { type: "video/webm" });
+
+  let url = URL.createObjectURL(blob);
+
+  // Save locally
+  let videos = JSON.parse(localStorage.getItem("videos") || "[]");
+  videos.push(url);
+  localStorage.setItem("videos", JSON.stringify(videos));
+
+  loadVideos();
+
+  setStatus("☁️ Uploading...");
+
+  const email = localStorage.getItem("user") || "user";
+  const fileName = email + "_" + Date.now() + ".webm";
+
+  const { error } = await supabase.storage
+    .from('videos')
+    .upload(fileName, blob);
+
+  if (error) {
+    setStatus("❌ Upload failed");
+    console.error(error);
+  } else {
+    setStatus("✅ Uploaded to cloud");
+  }
+}
+
+function loadVideos() {
+  let videos = JSON.parse(localStorage.getItem("videos") || "[]");
+  let container = document.getElementById("videos");
+  container.innerHTML = "";
+
+  videos.forEach(v => {
+    let vid = document.createElement("video");
+    vid.src = v;
+    vid.controls = true;
+    container.appendChild(vid);
+  });
+}
+
+// Network status
+window.addEventListener("online", () => setStatus("📶 Online"));
+window.addEventListener("offline", () => setStatus("📴 Offline"));
+</script>
+
+</body>
+</html>
