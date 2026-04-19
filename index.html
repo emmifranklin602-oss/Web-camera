@@ -15,97 +15,212 @@
       margin: 5px;
       border-radius: 5px;
       border: none;
+      font-size: 16px;
     }
     video {
       width: 90%;
+      max-width: 500px;
       margin-top: 10px;
+      border-radius: 8px;
+    }
+    .video-container {
+      margin-top: 20px;
+      padding: 10px;
+      background: #222;
+      border-radius: 8px;
     }
   </style>
 </head>
 
 <body>
 
-<h2>Secure Cloud Camera</h2>
+<h2>Secure Vault Camera</h2>
 
 <div id="auth">
+  <p>Enter your credentials to access your vault.</p>
   <input id="email" placeholder="Email"><br>
-  <input id="pin" placeholder="PIN"><br>
+  <input id="pin" type="password" placeholder="PIN"><br>
   <button onclick="login()">Login</button>
 </div>
 
 <div id="app" style="display:none;">
-  <video id="preview" autoplay></video><br>
-  <button onclick="startRecording()">Start Recording</button>
-  <button onclick="stopRecording()">Stop</button>
-  <button onclick="upload()">Upload</button>
+  <button onclick="logout()" style="background: #a00; color: white; float: right;">Logout</button>
+  <video id="preview" autoplay muted></video><br>
+  
+  <div style="margin: 15px 0;">
+      <button id="startBtn" onclick="startRecording()" style="background: #0a0;">Start Recording</button>
+      <button id="stopBtn" onclick="stopRecording()" disabled style="background: #555;">Stop & Save</button>
+  </div>
 
-  <h3>Uploaded Videos</h3>
+  <h3>Your Vault Videos</h3>
   <div id="videos"></div>
 </div>
 
 <script>
 let mediaRecorder;
 let chunks = [];
+let db;
+let currentUserKey = ""; // Ties data to the specific Email + PIN
 
+// 1. Initialize IndexedDB for heavy video storage
+const request = indexedDB.open("SecureCameraDB", 1);
+
+request.onupgradeneeded = (e) => {
+  db = e.target.result;
+  // Create a table (object store) for videos
+  if (!db.objectStoreNames.contains("videos")) {
+    db.createObjectStore("videos", { keyPath: "id", autoIncrement: true });
+  }
+};
+
+request.onsuccess = (e) => {
+  db = e.target.result;
+  // If user was already logged in during a refresh, load their vault
+  if(sessionStorage.getItem("userKey")) {
+      currentUserKey = sessionStorage.getItem("userKey");
+      showApp();
+  }
+};
+
+request.onerror = (e) => {
+  console.error("Database error:", e.target.error);
+};
+
+// 2. Authentication
 function login() {
-  let email = document.getElementById("email").value;
-  let pin = document.getElementById("pin").value;
+  let email = document.getElementById("email").value.trim();
+  let pin = document.getElementById("pin").value.trim();
 
   if(email && pin) {
-    localStorage.setItem("user", email);
+    // Create a unique key for this user based on email and PIN
+    currentUserKey = email + "_" + pin; 
+    sessionStorage.setItem("userKey", currentUserKey);
+    showApp();
+  } else {
+    alert("Please enter both Email and PIN");
+  }
+}
+
+function logout() {
+    sessionStorage.removeItem("userKey");
+    currentUserKey = "";
+    
+    // Stop camera
+    const stream = document.getElementById("preview").srcObject;
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+    
+    document.getElementById("auth").style.display = "block";
+    document.getElementById("app").style.display = "none";
+    
+    // Clear inputs
+    document.getElementById("email").value = "";
+    document.getElementById("pin").value = "";
+    document.getElementById("videos").innerHTML = "";
+}
+
+function showApp() {
     document.getElementById("auth").style.display = "none";
     document.getElementById("app").style.display = "block";
     startCamera();
     loadVideos();
-  }
 }
 
+// 3. Camera & Recording
 async function startCamera() {
-  let stream = await navigator.mediaDevices.getUserMedia({ video: true });
-  document.getElementById("preview").srcObject = stream;
-  mediaRecorder = new MediaRecorder(stream);
+  try {
+    let stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    document.getElementById("preview").srcObject = stream;
+    mediaRecorder = new MediaRecorder(stream);
 
-  // ✅ FIXED (safe data collection)
-  mediaRecorder.ondataavailable = e => {
-    if (e.data.size > 0) {
-      chunks.push(e.data);
-    }
-  };
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) {
+        chunks.push(e.data);
+      }
+    };
+
+    mediaRecorder.onstop = saveVideoToDatabase;
+    
+  } catch (err) {
+      alert("Camera access denied or unavailable.");
+  }
 }
 
 function startRecording() {
   chunks = [];
   mediaRecorder.start();
+  document.getElementById("startBtn").disabled = true;
+  document.getElementById("stopBtn").disabled = false;
+  document.getElementById("stopBtn").style.background = "#a00";
 }
 
 function stopRecording() {
   mediaRecorder.stop();
+  document.getElementById("startBtn").disabled = false;
+  document.getElementById("stopBtn").disabled = true;
+  document.getElementById("stopBtn").style.background = "#555";
 }
 
-function upload() {
-  // ✅ FIXED (correct format)
+// 4. Secure Local Database Storage
+function saveVideoToDatabase() {
   let blob = new Blob(chunks, { type: "video/webm" });
-  let url = URL.createObjectURL(blob);
+  
+  let transaction = db.transaction(["videos"], "readwrite");
+  let store = transaction.objectStore("videos");
+  
+  // Save the video tied to the current user's Key (Email+PIN)
+  let videoRecord = {
+      userKey: currentUserKey,
+      videoBlob: blob,
+      timestamp: new Date().toLocaleString()
+  };
 
-  let videos = JSON.parse(localStorage.getItem("videos") || "[]");
-  videos.push(url);
-  localStorage.setItem("videos", JSON.stringify(videos));
+  let request = store.add(videoRecord);
 
-  loadVideos();
-  alert("Uploaded (saved locally as cloud simulation)");
+  request.onsuccess = () => {
+      alert("Saved securely to your vault!");
+      loadVideos();
+  };
 }
 
+// 5. Load only the videos belonging to the current user
 function loadVideos() {
-  let videos = JSON.parse(localStorage.getItem("videos") || "[]");
   let container = document.getElementById("videos");
-  container.innerHTML = "";
+  container.innerHTML = ""; // Clear current view
 
-  videos.forEach(v => {
-    let vid = document.createElement("video");
-    vid.src = v;
-    vid.controls = true;
-    container.appendChild(vid);
-  });
+  let transaction = db.transaction(["videos"], "readonly");
+  let store = transaction.objectStore("videos");
+  let request = store.getAll();
+
+  request.onsuccess = (e) => {
+      let allVideos = e.target.result;
+      
+      // Filter videos so they only see ones matching their Email+PIN
+      let userVideos = allVideos.filter(v => v.userKey === currentUserKey);
+
+      if (userVideos.length === 0) {
+          container.innerHTML = "<p>No videos found in your vault.</p>";
+          return;
+      }
+
+      userVideos.forEach(v => {
+          let wrapper = document.createElement("div");
+          wrapper.className = "video-container";
+
+          let title = document.createElement("p");
+          title.innerText = "Recorded: " + v.timestamp;
+
+          let vid = document.createElement("video");
+          // Safely create a temporary URL for playback just for this session
+          vid.src = URL.createObjectURL(v.videoBlob); 
+          vid.controls = true;
+
+          wrapper.appendChild(title);
+          wrapper.appendChild(vid);
+          container.appendChild(wrapper);
+      });
+  };
 }
 </script>
 
